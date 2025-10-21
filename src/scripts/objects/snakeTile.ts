@@ -22,8 +22,52 @@ export default class SnakeTile extends Phaser.GameObjects.Container {
 
         // compute size/color/value as before
         this.width = 32 + 4 * sizeId;
-        const color = sizeId * 50000;
         const valueNum = 1 << sizeId; // 2^sizeId
+        const prettyPrint = (n: number): string => {
+            const units = ['', 'k', 'M', 'G', 'T', 'P'];
+            let value = n;
+            let unit = 0;
+            while (value >= 1024 && unit < units.length - 1) {
+                value /= 1024;
+                unit++;
+            }
+            if (unit === 0) return String(n);
+            let s: string;
+            if (Number.isInteger(value)) s = String(value);
+            else s = value >= 10 ? String(Math.round(value)) : value.toFixed(1).replace(/\.0$/, '');
+            return s + units[unit];
+        };
+
+        const displayValue = prettyPrint(valueNum);
+
+        // produce a color that moves through the hue wheel as sizeId increases,
+        // and slightly darkens for larger tiles for better contrast
+        const hue = (sizeId * 37) % 360;
+        const saturation = 80;
+        const lightness = Math.max(32, 68 - sizeId * 3);
+
+        const hslToRgb = (h: number, s: number, l: number): [number, number, number] => {
+            s /= 100;
+            l /= 100;
+            const c = (1 - Math.abs(2 * l - 1)) * s;
+            const hh = h / 60;
+            const x = c * (1 - Math.abs((hh % 2) - 1));
+            let r1 = 0, g1 = 0, b1 = 0;
+            if (0 <= hh && hh < 1) { r1 = c; g1 = x; b1 = 0; }
+            else if (1 <= hh && hh < 2) { r1 = x; g1 = c; b1 = 0; }
+            else if (2 <= hh && hh < 3) { r1 = 0; g1 = c; b1 = x; }
+            else if (3 <= hh && hh < 4) { r1 = 0; g1 = x; b1 = c; }
+            else if (4 <= hh && hh < 5) { r1 = x; g1 = 0; b1 = c; }
+            else { r1 = c; g1 = 0; b1 = x; }
+            const m = l - c / 2;
+            const r = Math.round((r1 + m) * 255);
+            const g = Math.round((g1 + m) * 255);
+            const b = Math.round((b1 + m) * 255);
+            return [r, g, b];
+        };
+
+        const [R, G, B] = hslToRgb(hue, saturation, lightness);
+        const color = (R << 16) | (G << 8) | B;
 
         // create a rectangle at local coords (0,0) with top-left origin
         this.tileRect = scene.add.rectangle(0, 0, this.width, this.width, color).setOrigin(0);
@@ -38,7 +82,7 @@ export default class SnakeTile extends Phaser.GameObjects.Container {
         const textColor = brightness > 140 ? '#000000' : '#ffffff';
 
         // centered text inside the container (local coords)
-        this.valueText = scene.add.text(this.width / 2, this.width / 2, String(valueNum), {
+        this.valueText = scene.add.text(this.width / 2, this.width / 2, String(displayValue), {
             fontFamily: 'Arial',
             fontSize: `${fontSize}px`,
             color: textColor,

@@ -16,7 +16,7 @@ export default class MainScene extends Phaser.Scene {
     const snake = new Snake(this, this.cameras.main.centerX, this.cameras.main.centerY);
     this.add.existing(snake);
 
-    this.foodTileManager = new FoodTileManager(this);
+    this.foodTileManager = new FoodTileManager(this, snake);
 
   }
 

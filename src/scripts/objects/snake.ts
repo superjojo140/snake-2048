@@ -2,9 +2,11 @@ import { FoodTile } from "./foodTile.js";
 import SnakeTile from "./snakeTile"
 
 export class Snake extends Phaser.GameObjects.Container {
-    private snakeTiles: SnakeTile[] = []
+    snakeTiles: SnakeTile[] = []
     private moveEvent?: Phaser.Time.TimerEvent
-    speed: number = 7;
+    speed= 8;
+
+    private mergeDelay = 800;
 
     constructor(scene: Phaser.Scene, x: number, y: number) {
         super(scene, x, y) // container origin at (0,0) in world coordinates
@@ -87,7 +89,7 @@ export class Snake extends Phaser.GameObjects.Container {
 
         for (let i = manager.foodTiles.length - 1; i >= 0; i--) {
             const food: FoodTile = manager.foodTiles[i];
-            if (!food) continue;
+            if (!food || food.snakeTile.sizeId > this.getHead().sizeId) continue; //dont eat bigger
 
             const foodBounds = typeof food.getBounds === 'function'
                 ? food.getBounds()
@@ -97,6 +99,20 @@ export class Snake extends Phaser.GameObjects.Container {
                 // grow the snake: add a new tile at the current tail position
                 const tail = this.snakeTiles[this.snakeTiles.length - 1];
                 const newTile = new SnakeTile(this.scene, tail.x + 32, tail.y, food.snakeTile.sizeId);
+                // ensure sorting happens after the new tile is pushed/added below
+                setTimeout(() => {
+                    // sort tiles ascending by sizeId (fallback to 0)
+                    this.snakeTiles.sort((a, b) => ((b as any).sizeId ?? 0) - ((a as any).sizeId ?? 0));
+
+                    // reorder container children to match sorted snakeTiles (remove without destroying)
+                    const children = [...((this as any).list ?? [])];
+                    for (const c of children) {
+                        if (this.snakeTiles.indexOf(c) !== -1) this.remove(c, false);
+                    }
+                    for (const t of this.snakeTiles) this.add(t);
+
+                    this.checkForTileMerge();
+                }, 0);
 
                 // remove the food from scene and manager
                 if (typeof food.destroy === 'function') food.destroy();
@@ -107,6 +123,78 @@ export class Snake extends Phaser.GameObjects.Container {
                 this.snakeTiles.push(newTile);
             }
         }
+    }
+    getHead() {
+       return this.snakeTiles[0];
+    }
+
+    private checkForTileMerge() {
+
+        const scheduled = new Set<SnakeTile>();
+
+        for (let i = 0; i < this.snakeTiles.length - 1; i++) {
+            const a = this.snakeTiles[i];
+            const b = this.snakeTiles[i + 1];
+            const aId = (a as any).sizeId ?? 0;
+            const bId = (b as any).sizeId ?? 0;
+
+            if (aId === bId && !scheduled.has(a) && !scheduled.has(b)) {
+                scheduled.add(a);
+                scheduled.add(b);
+
+                const mergedSize = aId + 1;
+
+                // schedule replacement after 2000ms
+                (this.scene as Phaser.Scene).time.addEvent({
+                    delay: this.mergeDelay,
+                    callback: () => {
+                        // ensure both tiles still exist and still have the same sizeId
+                        const idxA = this.snakeTiles.indexOf(a);
+                        const idxB = this.snakeTiles.indexOf(b);
+                        if (idxA === -1 || idxB === -1) return;
+                        const curAId = (a as any).sizeId ?? 0;
+                        const curBId = (b as any).sizeId ?? 0;
+                        if (curAId !== curBId) return;
+
+                        // remove the two tiles (remove higher index first)
+                        const hi = Math.max(idxA, idxB);
+                        const lo = Math.min(idxA, idxB);
+
+                        const tileHi = this.snakeTiles[hi];
+                        const tileLo = this.snakeTiles[lo];
+
+
+                        // remove from array
+                        this.snakeTiles.splice(hi, 1);
+                        this.snakeTiles.splice(lo, 1);
+
+                        // create merged tile and insert at lo
+                        const mergedTile = new SnakeTile(this.scene, tileHi.x, tileHi.y, mergedSize);
+                        this.snakeTiles.splice(lo, 0, mergedTile);
+                        this.add(mergedTile);
+
+
+                        // destroy old visuals
+                        if (typeof tileHi.destroy === 'function') tileHi.destroy();
+                        if (typeof tileLo.destroy === 'function') tileLo.destroy();
+
+                        // reorder container children to match snakeTiles
+                        const children = [...((this as any).list ?? [])];
+                        for (const c of children) {
+                            if (this.snakeTiles.indexOf(c) !== -1) this.remove(c, false);
+                        }
+                        for (const t of this.snakeTiles) this.add(t);
+
+                        this.checkForTileMerge();
+                    },
+                    callbackScope: this
+                });
+
+                // skip the next one since it's paired
+                i++;
+            }
+        }
+
     }
 }
 
