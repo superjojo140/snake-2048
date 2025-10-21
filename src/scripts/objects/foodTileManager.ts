@@ -5,7 +5,7 @@ export class FoodTileManager {
     foodTiles: FoodTile[] = [];
 
     constructor(scene: Phaser.Scene) {
-        const spawnInterval = 5000; // milliseconds
+        const spawnInterval = 2000; // milliseconds
         this.scene = scene;
 
 
@@ -17,6 +17,7 @@ export class FoodTileManager {
     spawnTile = () => {
         const x = Phaser.Math.Between(0, this.scene.scale.width);
         const y = Phaser.Math.Between(0, this.scene.scale.height);
-        this.foodTiles.push(new FoodTile(this.scene, x, y));
+        const sizeId = Phaser.Math.Between(1, 5);
+        this.foodTiles.push(new FoodTile(this.scene, x, y, sizeId));
     };
 }

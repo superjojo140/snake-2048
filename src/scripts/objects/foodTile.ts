@@ -10,14 +10,13 @@ import SnakeTile from './snakeTile';
 export class FoodTile extends Phaser.GameObjects.Container {
     public snakeTile: SnakeTile;
 
-    constructor(scene: Phaser.Scene, x: number, y: number,
-    ) {
+    constructor(scene: Phaser.Scene, x: number, y: number, sizeId = 1) {
         super(scene, x, y);
 
         scene.add.existing(this);
 
         // Use provided SnakeTile or create a simple default one
-        this.snakeTile = new SnakeTile(scene, 0, 0);
+        this.snakeTile = new SnakeTile(scene, 0, 0, sizeId);
         this.add(this.snakeTile);
     }
 
