@@ -39,6 +39,8 @@ export class Snake extends Phaser.GameObjects.Container {
                     snakeTile.moveBy(moveX, moveY);
                 }
 
+                this.checkFoodCollision();
+
             }
         })
     }
@@ -56,4 +58,38 @@ export class Snake extends Phaser.GameObjects.Container {
         this.snakeTiles = []
         super.destroy(fromScene)
     }
+
+    checkFoodCollision() {
+        const head = this.snakeTiles[0];
+        if (!head) return;
+
+        const manager = (this.scene as any).foodTileManager;
+        if (!manager || !Array.isArray(manager.foodTiles)) return;
+
+        const headBounds = typeof head.getBounds === 'function'
+            ? head.getBounds()
+            : new Phaser.Geom.Rectangle(head.x, head.y, head.width ?? 16, head.height ?? 16);
+
+        for (let i = manager.foodTiles.length - 1; i >= 0; i--) {
+            const food = manager.foodTiles[i];
+            if (!food) continue;
+
+            const foodBounds = typeof food.getBounds === 'function'
+                ? food.getBounds()
+                : new Phaser.Geom.Rectangle(food.x, food.y, food.width ?? 16, food.height ?? 16);
+
+            if (Phaser.Geom.Intersects.RectangleToRectangle(headBounds, foodBounds)) {
+                // remove the food from scene and manager
+                if (typeof food.destroy === 'function') food.destroy();
+                manager.foodTiles.splice(i, 1);
+
+                // grow the snake: add a new tile at the current tail position
+                const tail = this.snakeTiles[this.snakeTiles.length - 1];
+                const newTile = new SnakeTile(this.scene, tail.x+64, tail.y);
+                this.add(newTile);
+                this.snakeTiles.push(newTile);
+            }
+        }
+    }
 }
+
